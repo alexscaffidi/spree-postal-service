@@ -8,6 +8,7 @@ module Spree
         preference :max_item_weight, :decimal, default: 18
         preference :max_item_width,  :decimal, default: 60
         preference :max_item_length, :decimal, default: 120
+        preference :enable_max_price, :boolean, default: false
         preference :max_price,       :decimal, default: 120
         preference :handling_max,    :decimal, default: 50
         preference :handling_fee,    :decimal, default: 10
@@ -39,9 +40,9 @@ module Spree
 
         # Determine if weight or size goes over bounds.
         def available?(package)
-          package.order.variants.each do |variant|
-            return false if item_within_bounds?(variant.weight) # 18
-            return false if item_oversized?(variant)
+          package.contents.each do |item|
+            return false if item_within_bounds?(item.variant.weight) # 18
+            return false if item_oversized?(item.variant)
           end
           true
         end
@@ -49,13 +50,13 @@ module Spree
         # As order_or_line_items we always get line items, as calculable we have
         # Coupon, ShippingMethod or ShippingRate.
         def compute(package)
-          @line_items ||= package.order.line_items
+          @line_items = package.contents
           total_price  = compute_total_price
           total_weight = compute_total_weight
           shipping     = 0
-
-          return 0.0 if total_price > preferred_max_price
-
+          if preferred_enable_max_price == true
+            return 0.0 if total_price > preferred_max_price
+          end
           while total_weight > weights.last # In several packages if need be.
             total_weight -= weights.last
             shipping += prices.last
